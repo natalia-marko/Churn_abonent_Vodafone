@@ -49,17 +49,4 @@ This project leverages advanced machine learning to predict customer churn for V
 - At 10% retention, campaign ROI = 40% ($83,980 net gain)
 - Retaining a customer is up to 6x cheaper than acquiring a new one
 
-
-## Project Structure
-
-```
-├── Vodafone_Churn_Prediction.ipynb      # Main analysis notebook
-├── my_functions.py                      # Custom utility functions
-├── feature_importance.png               # Key drivers of churn (visual)
-├── ROI_plan.png                         # ROI analysis visual
-├── requirements.txt                     # Python dependencies
-└── README.md                            # Project documentation
-```
-
-**This project demonstrates how data science can drive measurable business value in telecom by enabling targeted, cost-effective customer retention.**
-
+image.png
