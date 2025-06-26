@@ -2,6 +2,15 @@ import pandas as pd
 import numpy as np
 import pickle
 from datetime import datetime, timedelta
+import time
+import seaborn as sns
+import matplotlib.pyplot as plt
+import catboost
+
+from sklearn.metrics import (
+    confusion_matrix, classification_report, roc_auc_score, precision_recall_curve,
+    f1_score, precision_score, recall_score,
+)
 
 def save_model(model=None, features=None, thr=None):
     if features is None:
@@ -60,24 +69,20 @@ def print_current_datetime():
     print("Date and time calculation: ", now.strftime("%Y-%m-%d %H:%M:%S"))
 
 
-def get_features(model, X, target_variable, top_n=20):
+
+def get_features(model, X, target_variable, top_n=10):
     importance = model.feature_importances_
     feature_importance_df = pd.DataFrame({'Feature': X.columns, 'Importance': importance})
     feature_importance_df = feature_importance_df.sort_values('Importance', ascending=False)
-    top_features = feature_importance_df[:top_n]
+    top_features = feature_importance_df[:top_n].reset_index(drop=True)
     
-    features_with_importance_gt_zero = feature_importance_df.loc[feature_importance_df['Importance'] > 0.0, 'Feature'].tolist()
+    features_with_importance_gt_zero = feature_importance_df[feature_importance_df['Importance'] > 0.0].reset_index(drop=True)
 
-    print("Feature Importance:")
-    print(feature_importance_df)
     print("\nTop", top_n, "Features:")
     print(top_features)
     print("\nNumber of Features with Importance > 0.0:", len(features_with_importance_gt_zero))
     
     return top_features['Feature'].tolist(), features_with_importance_gt_zero
-
-import numpy as np
-import pandas as pd
 
 def drop_highly_correlated(df, threshold=0.98):
     df_corr = df.corr(method='spearman')
@@ -101,11 +106,6 @@ def drop_highly_correlated(df, threshold=0.98):
     
     return df_new_corr, dropped_columns
 
-
-import numpy as np
-import pandas as pd
-from sklearn.metrics import precision_recall_curve
-import matplotlib.pyplot as plt
 
 
 def calculate_optimal_threshold(y_true, y_pred_proba, print_results=True):
@@ -258,16 +258,9 @@ def plot_roc_auc_curve(y_true, y_pred_proba, model_name="Model"):
     plt.show()
 
 
-import time
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, f1_score, precision_score, recall_score
-from catboost import CatBoostClassifier
-
-
 def plot_cb_model_results(results):
-
-    # Figure out how many epochs there were
+   # Figure out how many epochs there were
     epochs = range(len(results['train_auc']))
-
     # Setup a plot
     plt.figure(figsize=(15, 7))
 
@@ -287,7 +280,6 @@ def plot_cb_model_results(results):
     plt.xlabel('Epochs')
     plt.legend();
 
-import seaborn as sns
 def plotting_confusion_matrix(y_true, binary_predictions):
     # Confusion matrix analysis
     print("Generating confusion matrix...")
@@ -326,8 +318,6 @@ def plotting_confusion_matrix(y_true, binary_predictions):
 
     print("Confusion matrix analysis completed!")
 
-from sklearn.metrics import roc_auc_score, recall_score, precision_score, f1_score
-import pandas as pd
 
 def evaluate_classification_model(y_true, y_pred_binary, y_pred_proba, model_name='model'):
 
@@ -344,3 +334,64 @@ def evaluate_classification_model(y_true, y_pred_binary, y_pred_proba, model_nam
         "Precision": precision
     }])
 
+# Helper for evaluation several models
+def evaluate(y_true, y_pred, model_name):
+    roc = roc_auc_score(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred)
+    recall = recall_score(y_true, y_pred)
+    print(f"\n{model_name}:")
+    print(f"ROC AUC: {roc:.4f}")
+    print(f"F1: {f1:.4f}")
+    print(f"Recall: {recall:.4f}")
+    return {'Model': model_name, 'ROC AUC': roc, 'F1': f1, 'Recall': recall}
+
+def preprocess_data(data):
+    missing = data.isnull().sum() / len(data) * 100
+    cols_to_drop = missing[missing > 90].index.tolist()
+    data = data.drop(columns=cols_to_drop)
+    data = data.fillna(-1)
+    if 'abon_id' in data.columns:
+        data = data.drop(columns=['abon_id'])
+    return data
+
+def calculating_marketing_campaighn(y, predictions_binary, avg_customer_value = 50, campaign_cost_per_customer = 20):
+    print("Calculating business impact and ROI potential for multiple retention scenarios...")
+    
+    # Metrics from the model/results
+    total_customers = len(y)
+    actual_churners = sum(y)
+    predicted_churners = sum(predictions_binary)
+    correctly_identified = sum((y == 1) & (predictions_binary == 1))
+    
+    # Business assumptions
+    # avg_customer_value = 50  # Monthly revenue per customer
+    # campaign_cost_per_customer = 20  # Cost of retention campaign per customer
+    
+    # Retention rates to analyze (from 3% to 30%)
+    retention_rates = [0.03, 0.05, 0.06, 0.07, 0.1, 0.15, 0.2, 0.25]
+    
+    roi_results = []
+    for rate in retention_rates:
+        potential_savings = correctly_identified * avg_customer_value * 12 * rate
+        campaign_cost = predicted_churners * campaign_cost_per_customer
+        net_roi = potential_savings - campaign_cost
+        roi_percentage = (net_roi / campaign_cost) * 100 if campaign_cost > 0 else 0
+    
+        roi_results.append({
+            "Retention Rate (%)": f"{rate*100:.0f}%",
+            "Potential Savings ($)": potential_savings,
+            "Campaign Cost ($)": campaign_cost,
+            "Net ROI ($)": net_roi,
+            "ROI (%)": roi_percentage
+        })
+    
+    roi_df = pd.DataFrame(roi_results)
+    
+    print(f"\nBusiness Impact Analysis (Retention Scenarios):")
+    print(f"Total customers in test set: {total_customers:,}")
+    print(f"Actual churners: {actual_churners:,} ({actual_churners/total_customers*100:.1f}%)")
+    print(f"Predicted churners: {predicted_churners:,} ({predicted_churners/total_customers*100:.1f}%)")
+    print(f"Correctly identified churners: {correctly_identified:,}\n")
+    print(roi_df.to_string(index=False))
+    
+    return roi_df

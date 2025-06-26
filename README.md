@@ -49,4 +49,18 @@ This project leverages advanced machine learning to predict customer churn for V
 - At 10% retention, campaign ROI = 40% ($83,980 net gain)
 - Retaining a customer is up to 6x cheaper than acquiring a new one
 
+---
+
+## Anomaly Detection Approach (Advanced Experiments)
+
+A dedicated folder, `anomaly_detection_approach`, contains experiments with unsupervised and semi-supervised anomaly detection for churn prediction:
+
+- **Isolation Forest, Local Outlier Factor (LOF), and One-Class SVM** were tested as standalone churn detectors. All performed poorly, with low F1 and recall, missing many churners and/or making many false alarms. Isolation Forest was the best among them, but still limited.
+- **Adding the Isolation Forest anomaly score as a feature to CatBoost** increased recall (found more churners), but at the cost of a significant increase in false positives (lower precision and F1). The original CatBoost model (without iso_score) achieved higher precision and F1 on unseen data, while CatBoost+iso_score found more churners but with a higher false positive rate (up to 15%).
+- **Conclusion:** The best approach depends on business needs:
+  - If you want to catch as many churners as possible (high recall), CatBoost+iso_score may be preferred.
+  - If you want to minimize false positives and maintain high precision/F1, the original CatBoost model may be better.
+
+**Recommendation:** Use anomaly detection scores as features in supervised models only if your business can tolerate more false positives in exchange for higher recall. Otherwise, the original CatBoost model may be preferable for its higher precision and F1.
+
 image.png
